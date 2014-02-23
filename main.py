@@ -18,6 +18,9 @@ import path_fix
 
 import webapp2
 import pytz
+from BeautifulSoup import BeautifulSoup
+
+import urllib2
 from pytz import timezone
 from icalendar import Calendar, Event,  LocalTimezone
 from datetime import datetime, timedelta
@@ -61,10 +64,28 @@ def cal_demo():
         cal.add_component(event)
     return cal.to_ical()
 
+def get_first_int_in_list(src_list):
+    for i in src_list:
+        try:
+            return(int(i))
+        except ValueError:
+            pass
+            
+def get_id_from_url(path):
+    links_eles= path.split('/')
+    return (get_first_int_in_list(links_eles))
+
 
 class MainHandler(webapp2.RequestHandler):
     def get(self):
-        self.response.write(cal_demo())
+        url = urllib2.urlopen("http://www.vam.ac.uk/whatson/events/day/20140223/")
+        content = url.read().decode('utf-8', 'strict').encode('ascii', 'ignore')
+        soup = BeautifulSoup(content.decode('utf-8', 'ignore'))
+        div = soup.find('div', {'id':'etype_free-talks-tours'})
+        aa_div = div.findAll('a')
+        links = [a['href'].strip() for a in aa_div]
+        ids = [get_id_from_url(ele) for ele in links]
+        self.response.write(set(ids))
 
 
 
