@@ -7,3 +7,6 @@
 [submodule "six"]
 	path = six
 	url = https://github.com/kelp404/six.git
+[submodule "pattern"]
+	path = pattern
+	url = https://github.com/clips/pattern.git
