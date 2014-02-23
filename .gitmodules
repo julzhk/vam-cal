@@ -1,0 +1,9 @@
+[submodule "icalendar"]
+	path = icalendar
+	url = https://github.com/collective/icalendar.git
+[submodule "python-dateutil"]
+	path = python-dateutil
+	url = https://github.com/paxan/python-dateutil.git
+[submodule "six"]
+	path = six
+	url = https://github.com/kelp404/six.git
