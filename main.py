@@ -75,17 +75,33 @@ def get_id_from_url(path):
     links_eles= path.split('/')
     return (get_first_int_in_list(links_eles))
 
+def output_urls(idlist):
+    r= ''
+    for id in idlist:
+	    r += '<li><a href="http://www.vam.ac.uk/whatson/event/%s/">%s</a></li>' % (id,id)
+    r = '<ul>%s</ul>' % r    
+    return r
 
 class MainHandler(webapp2.RequestHandler):
     def get(self):
-        url = urllib2.urlopen("http://www.vam.ac.uk/whatson/events/day/20140223/")
-        content = url.read().decode('utf-8', 'strict').encode('ascii', 'ignore')
-        soup = BeautifulSoup(content.decode('utf-8', 'ignore'))
-        div = soup.find('div', {'id':'etype_free-talks-tours'})
-        aa_div = div.findAll('a')
-        links = [a['href'].strip() for a in aa_div]
-        ids = [get_id_from_url(ele) for ele in links]
-        self.response.write(set(ids))
+        for daycount in range(0,4):
+            scandate = (datetime.now() + days_delta(daycount)).strftime("%Y%m%d")
+            self.response.write('<h2>%s</h2>' % scandate )
+            urlpath = "http://www.vam.ac.uk/whatson/events/day/%s/" % scandate
+            url = urllib2.urlopen(urlpath)
+            self.response.write(urlpath )
+            self.response.write('<br>' )
+            content = url.read().decode('utf-8', 'strict').encode('ascii', 'ignore')
+            soup = BeautifulSoup(content.decode('utf-8', 'ignore'))
+            div = soup.find('div', {'id':'etype_free-talks-tours'})
+            try:
+                aa_div = div.findAll('a')
+                links = [a['href'].strip() for a in aa_div]
+                ids = set([get_id_from_url(ele) for ele in links])
+                self.response.write(output_urls(ids))
+                self.response.write('---')
+            except AttributeError:
+               self.response.write('<br>??<br>')
 
 
 
