@@ -7,3 +7,6 @@
 [submodule "six"]
 	path = six
 	url = https://github.com/kelp404/six.git
+[submodule "beautifulsoup"]
+	path = beautifulsoup
+	url = https://github.com/bdoms/beautifulsoup.git
