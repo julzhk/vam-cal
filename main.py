@@ -19,11 +19,12 @@ import path_fix
 import webapp2
 import pytz
 from BeautifulSoup import BeautifulSoup
-
+import json
 import urllib2
 from pytz import timezone
 from icalendar import Calendar, Event,  LocalTimezone
 from datetime import datetime, timedelta
+import logging
 
 
 class caldict(dict):
@@ -35,25 +36,14 @@ def days_delta(n):
     return timedelta(days=n)
 
 
-        
-def cal_demo():    
+def cal_demo(queryset):
     cal = Calendar()    
     cal.add('version', '2.0')
     cal.add('prodid', '-//test file//example.com//')
     cal.add('X-WR-CALNAME','Test Calendar' )
     lt = LocalTimezone() # we append the local timezone to each time so that icalendar will convert
                          # to UTC in the output
-    e1 = caldict()
-    
-    e1['uid'] = 1
-    e1['event_name'] ='eve1'
-    e1[	'event_date'] =datetime.now() + days_delta(1)
-    e1[	'start_time'] =datetime.now().time()
-    e1[	'stop_date'] =datetime.now() + days_delta(2)
-    e1[	'stop_time'] =datetime.now().time()
-    e1[	'updated_on'] =datetime.now()
-    queryset = [e1]	    
-    for ent in queryset:        
+    for ent in queryset:
         event = Event()
         event.add('summary', ent['event_name'])
         event.add('dtstart', datetime.combine(ent['event_date'],ent['start_time']).replace(tzinfo=lt))
@@ -84,24 +74,36 @@ def output_urls(idlist):
 
 class MainHandler(webapp2.RequestHandler):
     def get(self):
+        qs = []
         for daycount in range(0,4):
             scandate = (datetime.now() + days_delta(daycount)).strftime("%Y%m%d")
-            self.response.write('<h2>%s</h2>' % scandate )
-            urlpath = "http://www.vam.ac.uk/whatson/events/day/%s/" % scandate
-            url = urllib2.urlopen(urlpath)
-            self.response.write(urlpath )
-            self.response.write('<br>' )
-            content = url.read().decode('utf-8', 'strict').encode('ascii', 'ignore')
-            soup = BeautifulSoup(content.decode('utf-8', 'ignore'))
-            div = soup.find('div', {'id':'etype_free-talks-tours'})
-            try:
-                aa_div = div.findAll('a')
-                links = [a['href'].strip() for a in aa_div]
-                ids = set([get_id_from_url(ele) for ele in links])
-                self.response.write(output_urls(ids))
-                self.response.write('---')
-            except AttributeError:
-               self.response.write('<br>??<br>')
+            # self.response.write('<h2>%s</h2>' % scandate )
+            urlpath = "http://www.vam.ac.uk/whatson/json/events/day/%s/" % scandate
+            response = urllib2.urlopen(urlpath)
+            data = json.load(response)
+            for d in data:
+                if d['fields']['event_type'] not in [40, 41 , 45 ]:
+                    continue
+                self.response.write('<img src="http://www.vam.ac.uk/whatson/media/%s" style="width:250px;"><br>' % d['fields']['image'])
+                for f in ['name','first_slot','last_slot','all_day','short_description','event_type',
+                          'free','image']:
+                    self.response.write('%s: %s' % (f, d['fields'][f]))
+                    self.response.write('<br>' )
+                    pass
+                self.response.write('<hr>')
+            e1 = caldict()
+            e1['uid'] = 1
+            e1['event_name'] = d['fields']['name']
+            logging.info(d['fields']['first_slot'])
+            e1[	'event_date'] = datetime.strptime(d['fields']['first_slot'], '%Y-%m-%d %H:%M:%S')
+            e1[	'start_time'] =datetime.strptime(d['fields']['first_slot'], '%Y-%m-%d %H:%M:%S').time()
+            e1[	'stop_date'] = datetime.strptime(d['fields']['last_slot'], '%Y-%m-%d %H:%M:%S')
+            e1[	'stop_time'] =datetime.strptime(d['fields']['last_slot'], '%Y-%m-%d %H:%M:%S').time()
+            e1[	'updated_on'] =datetime.now()
+            qs.append(e1)
+
+        self.response.write(cal_demo(qs))
+
 
 
 
