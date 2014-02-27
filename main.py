@@ -29,7 +29,7 @@ import logging
 
 class caldict(dict):
     def pk(self):
-        return 123
+        return self['uid']
    
 
 def days_delta(n):
@@ -39,8 +39,8 @@ def days_delta(n):
 def cal_demo(queryset):
     cal = Calendar()    
     cal.add('version', '2.0')
-    cal.add('prodid', '-//test file//example.com//')
-    cal.add('X-WR-CALNAME','Test Calendar' )
+    cal.add('prodid', '-//V and A upcoming events//www.vam.ac.uk.com/whatson/')
+    cal.add('X-WR-CALNAME','V and A Events Calendar' )
     lt = LocalTimezone() # we append the local timezone to each time so that icalendar will convert
                          # to UTC in the output
     for ent in queryset:
@@ -50,7 +50,7 @@ def cal_demo(queryset):
         event.add('dtend', datetime.combine(ent['stop_date'],ent['stop_time']).replace(tzinfo=lt))
         event.add('dtstamp', ent['updated_on'].replace(tzinfo=lt))
         event['uid'] = ent.pk  # should probably use a better guid than just the PK
-        event.add('priority', 5)
+        event.add('description', ent['description'])
         cal.add_component(event)
     return cal.to_ical()
 
@@ -74,8 +74,35 @@ def output_urls(idlist):
 
 class MainHandler(webapp2.RequestHandler):
     def get(self):
+        for daycount in range(0,14):
+            scandate = (datetime.now() + days_delta(daycount)).strftime("%Y%m%d")
+            self.response.write('<h2>%s</h2>' % scandate )
+            urlpath = "http://www.vam.ac.uk/whatson/json/events/day/%s/" % scandate
+            response = urllib2.urlopen(urlpath)
+            data = json.load(response)
+            for d in data:
+                if d['fields']['event_type'] not in [40, 41 , 45 ]:
+                    continue
+                if 'TOUR' in d['fields']['short_description']:
+                    continue
+                # self.response.write(d['fields'])
+                self.response.write('<img src="http://www.vam.ac.uk/whatson/media/%s" style="width:250px;"><br>' % d['fields']['image'])
+                for f in ['name','first_slot','last_slot', 'short_description','event_type',
+                          'free','image']:
+                    self.response.write('%s: %s' % (f, d['fields'][f]))
+                    dur = datetime.strptime(d['fields']['last_slot'], '%Y-%m-%d %H:%M:%S') - datetime.strptime(d['fields']['first_slot'], '%Y-%m-%d %H:%M:%S')
+                    self.response.write('<br>' )
+                    pass
+                self.response.write('<br>duration: %s' % dur )
+                # if dur > timedelta(days=5):
+                #     self.response.write('<br>long event!' )
+                self.response.write('<hr>')
+
+
+class CalHandler(webapp2.RequestHandler):
+    def get(self):
         qs = []
-        for daycount in range(0,4):
+        for daycount in range(0,31):
             scandate = (datetime.now() + days_delta(daycount)).strftime("%Y%m%d")
             # self.response.write('<h2>%s</h2>' % scandate )
             urlpath = "http://www.vam.ac.uk/whatson/json/events/day/%s/" % scandate
@@ -84,29 +111,39 @@ class MainHandler(webapp2.RequestHandler):
             for d in data:
                 if d['fields']['event_type'] not in [40, 41 , 45 ]:
                     continue
-                self.response.write('<img src="http://www.vam.ac.uk/whatson/media/%s" style="width:250px;"><br>' % d['fields']['image'])
-                for f in ['name','first_slot','last_slot','all_day','short_description','event_type',
-                          'free','image']:
-                    self.response.write('%s: %s' % (f, d['fields'][f]))
-                    self.response.write('<br>' )
-                    pass
-                self.response.write('<hr>')
-            e1 = caldict()
-            e1['uid'] = 1
-            e1['event_name'] = d['fields']['name']
-            logging.info(d['fields']['first_slot'])
-            e1[	'event_date'] = datetime.strptime(d['fields']['first_slot'], '%Y-%m-%d %H:%M:%S')
-            e1[	'start_time'] =datetime.strptime(d['fields']['first_slot'], '%Y-%m-%d %H:%M:%S').time()
-            e1[	'stop_date'] = datetime.strptime(d['fields']['last_slot'], '%Y-%m-%d %H:%M:%S')
-            e1[	'stop_time'] =datetime.strptime(d['fields']['last_slot'], '%Y-%m-%d %H:%M:%S').time()
-            e1[	'updated_on'] =datetime.now()
-            qs.append(e1)
+                if 'tour' in d['fields']['short_description'].lower():
+                    continue
+                if 'tour' in d['fields']['name'].lower():
+                    continue
+                dur = datetime.strptime(d['fields']['last_slot'], '%Y-%m-%d %H:%M:%S') - \
+                      datetime.strptime(d['fields']['first_slot'], '%Y-%m-%d %H:%M:%S')
+                if dur > timedelta(days=5):
+                    continue
 
+                e1 = caldict()
+                e1['uid'] = d['fields']['peo_code']
+                e1['event_name'] = d['fields']['name']
+                logging.info(e1['event_name'])
+                logging.info('dur %s' % dur)
+                logging.info(d['fields']['first_slot'])
+                logging.info(d['fields']['last_slot'])
+                e1[	'event_date'] = datetime.strptime(d['fields']['first_slot'], '%Y-%m-%d %H:%M:%S')
+                e1[	'description'] = d['fields']['long_description']
+                e1[	'start_time'] =datetime.strptime(d['fields']['first_slot'], '%Y-%m-%d %H:%M:%S').time()
+                e1[	'stop_date'] = datetime.strptime(d['fields']['last_slot'], '%Y-%m-%d %H:%M:%S')
+                e1[	'stop_time'] =datetime.strptime(d['fields']['last_slot'], '%Y-%m-%d %H:%M:%S').time()
+                if e1['start_time'] == e1[	'stop_time']:
+                    logging.info('no duration')
+
+                    e1[	'stop_time'] = (e1['stop_date'] + timedelta(hours=1)).time()
+                e1[	'updated_on'] =datetime.now()
+
+                qs.append(e1)
         self.response.write(cal_demo(qs))
 
 
-
-
 app = webapp2.WSGIApplication([
+    ('/cal', CalHandler),
+    ('/ical', CalHandler),
     ('.*', MainHandler)
 ], debug=True)
