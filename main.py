@@ -86,7 +86,7 @@ class MainHandler(webapp2.RequestHandler):
     ''' prints to screen the cal
     '''
     def get(self):
-        for daycount in range(0,14):
+        for daycount in range(0,28):
             scandate = (datetime.now() + days_delta(daycount)).strftime("%Y%m%d")
             self.response.write('<h2>%s</h2>' % scandate )
             urlpath = "http://www.vam.ac.uk/whatson/json/events/day/%s/" % scandate
