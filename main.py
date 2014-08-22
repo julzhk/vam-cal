@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 import path_fix
-
+import os
 import webapp2
 import pytz
 import datetime
@@ -25,6 +25,7 @@ import urllib2
 from pytz import timezone
 from icalendar import Calendar, Event,  LocalTimezone
 from datetime import datetime, timedelta
+import jinja2
 import logging
 from roomlookup import roomlookupdict
 
@@ -33,6 +34,7 @@ EVENING_TALK_CODE = 40
 MEMBERSHIP_EVENT_CODE = 45
 DAILY_TOUR_CODE = 41
 
+jinja_environment = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
 
 class caldict(dict):
     def pk(self):
@@ -161,9 +163,14 @@ class CalHandler(webapp2.RequestHandler):
                 qs.append(e1)
         self.response.write(cal_demo(qs))
 
+class HomeHandler(webapp2.RequestHandler):
+    def get(self):
+        template = jinja_environment.get_template('templates/main.html')
+        self.response.out.write(template.render({}))
+
 
 app = webapp2.WSGIApplication([
     ('/cal', MainHandler),
     ('/ical', CalHandler),
-    ('.*', CalHandler)
+    ('.*', HomeHandler)
 ], debug=True)
